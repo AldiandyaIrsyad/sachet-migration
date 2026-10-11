@@ -1,0 +1,7 @@
+node_modules
+dist
+*.log
+
+# Private drafts and tooling, not part of the app
+docs/
+.claude/
