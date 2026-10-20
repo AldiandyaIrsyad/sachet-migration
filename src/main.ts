@@ -1,6 +1,8 @@
 import './style.css';
 import { switchSavings } from './calc';
-import { productById, loadCatalog } from './data';
+import { compose } from './compose';
+import { productById } from './data';
+import { features } from './features';
 import { getLang, setLang, t, type Lang } from './i18n';
 import { onBarcodeSubmit, onLookupClick, onPhotoChosen, onSearchInput, stopCamera } from './lookup';
 import { addBase, buyAgain, migrate, removeMigration } from './store';
@@ -38,6 +40,7 @@ function renderChrome(tab: string) {
   const lang = getLang();
   topbar.innerHTML = `
     <a href="#/" class="brand"><span class="brand-mark" aria-hidden="true"></span>Sachet Migration</a>
+    ${features.tour ? `<button type="button" class="guide-btn" data-tour>${t('guide')}</button>` : ''}
     <div class="lang" role="group" aria-label="Language">
       ${(['id', 'en'] as Lang[])
         .map((l) => `<button type="button" data-lang="${l}" aria-pressed="${l === lang}">${l.toUpperCase()}</button>`)
@@ -97,7 +100,11 @@ function rerender() {
 
 // ---------- events ----------
 
-topbar.addEventListener('click', (ev) => {
+topbar.addEventListener('click', async (ev) => {
+  if ((ev.target as HTMLElement).closest('[data-tour]')) {
+    (await import('./demo/tour')).replayTour();
+    return;
+  }
   const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('[data-lang]');
   if (!btn) return;
   setLang(btn.dataset.lang as Lang);
@@ -190,13 +197,20 @@ app.addEventListener('input', (ev) => {
 async function boot() {
   app.innerHTML = `<p class="hint">${t('loading')}</p>`;
   try {
-    await loadCatalog();
+    await compose(import.meta.env.MODE);
   } catch {
     app.innerHTML = `<p class="hint">${t('loadFail')}</p>`;
     return;
   }
+  if (features.demoBanner) {
+    const banner = document.querySelector<HTMLDivElement>('#demo-banner')!;
+    banner.textContent = t('demoBanner');
+    banner.hidden = false;
+    document.title += ' (demo)';
+  }
   window.addEventListener('hashchange', route);
   route();
+  if (features.tour) (await import('./demo/tour')).startTourIfFirstVisit();
 }
 
 void boot();

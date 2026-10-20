@@ -602,3 +602,59 @@ sup.est { font-size: 0.7em; color: var(--warn); margin-left: 1px; }
 .pcard-price { margin-top: 4px; font-weight: 700; color: var(--good); }
 .pcard-price small { font-weight: 400; }
 .btn.more { width: 100%; margin-top: 12px; }
+
+/* ---------- demo: guide button, walkthrough, notice ---------- */
+.guide-btn {
+  margin-left: auto;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+/* The element the guide is pointing at: lifted above the dimmed page and outlined. */
+.look-here {
+  position: relative;
+  z-index: 101;
+  outline: 3px solid var(--tag);
+  outline-offset: 4px;
+  border-radius: 14px;
+  box-shadow: 0 0 0 8px rgb(255 211 26 / 0.35);
+  background-color: var(--surface);
+  pointer-events: none;
+}
+.nav.look-here { position: fixed; }
+.tour-backdrop { position: fixed; inset: 0; z-index: 100; background: rgb(0 0 0 / 0.55); }
+.tour-card {
+  position: fixed;
+  z-index: 102;
+  left: 12px;
+  right: 12px;
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.3);
+}
+.tour-card.bottom { bottom: 16px; }
+.tour-card.top { top: 70px; }
+.tour-card h2 { margin: 0 0 6px; font-size: 1.1rem; }
+.tour-card p { margin: 0 0 12px; color: var(--muted); }
+.tour-count { float: right; color: var(--muted); font-size: 0.85rem; }
+.tour-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+.demo-banner {
+  padding: 8px 16px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+  text-align: center;
+}

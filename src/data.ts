@@ -1,4 +1,5 @@
 import type { L } from './i18n';
+import type { CatalogSource } from './ports';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HOW TO ADD OR EDIT A PRODUCT
@@ -13,7 +14,7 @@ import type { L } from './i18n';
 // shelf prices and weighed packaging. Barcodes starting 8990000 are placeholders.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type CategoryId = 'coffee' | 'cereal' | 'chocolate' | 'spice' | 'floor' | 'ironing' | 'detergent' | 'milk';
+export type CategoryId = 'coffee' | 'cereal' | 'chocolate' | 'spice' | 'floor' | 'ironing' | 'detergent' | 'milk' | 'shampoo' | 'sauce';
 
 export type Kind =
   | 'sachet'
@@ -34,7 +35,7 @@ type PlasticInput = { total: number } | { perPortion: number };
 
 export type Estimate = 'price' | 'plastic' | 'portions';
 
-interface ProductInput {
+export interface ProductInput {
   id: string;
   /** EAN-13 printed under the barcode. Empty for refills. */
   barcode: string;
@@ -127,6 +128,14 @@ export const categories: Record<CategoryId, Category> = {
     id: 'milk', label: { id: 'Susu kental manis', en: 'Condensed milk' },
     unit: { id: 'kali pakai', en: 'use' }, unitPluralEn: 'uses', monthly: 30,
   },
+  shampoo: {
+    id: 'shampoo', label: { id: 'Sampo', en: 'Shampoo' },
+    unit: { id: 'kali keramas', en: 'wash' }, unitPluralEn: 'washes', monthly: 15,
+  },
+  sauce: {
+    id: 'sauce', label: { id: 'Kecap manis', en: 'Sweet soy sauce' },
+    unit: { id: 'kali pakai', en: 'use' }, unitPluralEn: 'uses', monthly: 20,
+  },
 };
 
 // Extras needed so a swap matches what the usual product gives you.
@@ -162,10 +171,8 @@ function derive({ portions, plastic, ...rest }: ProductInput): Product {
   };
 }
 
-export async function loadCatalog(): Promise<void> {
-  const res = await fetch(`${import.meta.env.BASE_URL}data/products.json`);
-  if (!res.ok) throw new Error(`products.json: ${res.status}`);
-  const inputs = (await res.json()) as ProductInput[];
+export async function loadCatalog(source: CatalogSource): Promise<void> {
+  const inputs = await source.load();
 
   products = inputs.map(derive);
   productById = new Map(products.map((p) => [p.id, p]));

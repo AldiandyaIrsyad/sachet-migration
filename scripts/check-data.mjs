@@ -1,7 +1,10 @@
-// Fails the build when public/data/products.json has mistakes. Cheap insurance at 1000s of rows.
-import { readFileSync } from 'node:fs';
+// Fails the build when a file in public/data/ has mistakes. Cheap insurance at 1000s of rows.
+import { readdirSync, readFileSync } from 'node:fs';
 
-const products = JSON.parse(readFileSync(new URL('../public/data/products.json', import.meta.url), 'utf8'));
+const dataDir = new URL('../public/data/', import.meta.url);
+const files = readdirSync(dataDir).filter((f) => f.endsWith('.json'));
+// Every catalogue file is checked together, so ids and barcodes stay unique across base and demo data.
+const products = files.flatMap((f) => JSON.parse(readFileSync(new URL(f, dataDir), 'utf8')));
 const src = readFileSync(new URL('../src/data.ts', import.meta.url), 'utf8');
 const list = (name) => [...src.match(new RegExp(`export type ${name}\\s*=([^;]+);`))[1].matchAll(/'([\w-]+)'/g)].map((m) => m[1]);
 const categories = list('CategoryId');
@@ -38,7 +41,7 @@ for (const [i, p] of products.entries()) {
 }
 
 if (errors.length) {
-  console.error(`products.json: ${errors.length} problem(s)\n` + errors.map((e) => `  - ${e}`).join('\n'));
+  console.error(`public/data: ${errors.length} problem(s)\n` + errors.map((e) => `  - ${e}`).join('\n'));
   process.exit(1);
 }
-console.log(`products.json: ${products.length} products OK`);
+console.log(`${files.join(', ')}: ${products.length} products OK`);

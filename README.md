@@ -20,7 +20,20 @@ Prices and packaging weights are **estimates** unless noted; barcodes starting `
 - `src/data.ts`: types, categories, catalogue loading, lookup tables and ranked search.
 - `src/calc.ts`: per-serving cost, plastic and swap maths.
 - `src/views/`: one file per screen (home, products, product, savings, why).
+- `src/ports.ts`, `src/adapters/`, `src/compose.ts`: the injected services and where they are chosen.
+- `src/demo/`: demo-only guide.
 - `src/lookup.ts`: camera, photo, typed barcode and quick search on the home screen.
+
+## Modes (dependency injection)
+
+The UI only talks to the interfaces in `src/ports.ts` (`CatalogSource`, `MigrationStore`, `Features`). `src/compose.ts` is the one place that picks the implementations:
+
+| Mode | Command | Catalogue | Switches saved in | Extras |
+|---|---|---|---|---|
+| `app` (default) | `npm run dev` / `npm run build` | `products.json` | this browser | none |
+| `demo` | `npm run dev:demo` / `npm run build:demo` | `products.json` + `demo-products.json` | this browser | demo notice, skippable guide, "try an example" |
+
+GitHub Pages publishes the **demo** build, with a notice that it is an interactive demo and not an actual deployment. Because both modes share every view, a frontend change shows up in both. A backend-driven mode would add an adapter for `CatalogSource` and `MigrationStore` plus one `case` in `compose.ts`; no view changes.
 
 ## Run
 
@@ -33,7 +46,7 @@ npm run dev
 
 1. Push to a GitHub repo on the `main` branch.
 2. In the repo: **Settings → Pages → Source: GitHub Actions**.
-3. The workflow in `.github/workflows/deploy.yml` builds and publishes on every push.
+3. The workflow in `.github/workflows/deploy.yml` builds the demo (`npm run build:demo`) and publishes on every push.
 
 ## Later
 

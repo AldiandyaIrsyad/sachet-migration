@@ -1,5 +1,6 @@
 import type { IScannerControls } from '@zxing/browser';
 import { findByBarcode, search } from './data';
+import { features } from './features';
 import { t } from './i18n';
 import { scanFromCamera, scanFromImage } from './scanner';
 import { esc, productRow } from './ui';
@@ -50,6 +51,10 @@ export async function onLookupClick(el: HTMLElement): Promise<boolean> {
     stopCamera();
     $<HTMLDivElement>('#viewfinder')!.hidden = true;
     $<HTMLDivElement>('#scan-msg')!.textContent = '';
+    return true;
+  }
+  if (el.id === 'use-example' && features.exampleBarcode) {
+    handleCode(features.exampleBarcode);
     return true;
   }
   return false;

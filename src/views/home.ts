@@ -1,3 +1,4 @@
+import { features } from '../features';
 import { t } from '../i18n';
 import { packIcon } from '../icons';
 
@@ -24,6 +25,7 @@ export function homeView(): string {
         <input id="barcode" class="search" type="text" inputmode="numeric" placeholder="${t('barcodePh')}">
         <button class="btn primary" type="submit">${t('barcodeGo')}</button>
       </form>
+      ${features.exampleBarcode ? `<button class="btn example" id="use-example" type="button">${t('exampleBtn')}</button>` : ''}
       <div id="scan-msg" class="scan-msg" role="status"></div>
       <label class="visually-hidden" for="search">${t('searchLabel')}</label>
       <input id="search" class="search" type="search" placeholder="${t('searchPh')}" autocomplete="off">
