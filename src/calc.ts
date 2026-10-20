@@ -1,4 +1,6 @@
-import { addons, productById, products, type Product } from './data';
+import { addons, byCategory, productById, type Product } from './data';
+
+const inCategory = (p: Product) => byCategory.get(p.category) ?? [];
 
 /** Shelf price per portion of this product on its own. */
 export const costPer = (p: Product) => p.price / p.servings;
@@ -69,7 +71,7 @@ export function swapScore(usual: Product, alt: Product): number {
  * within each group, highest weighted score first.
  */
 export function alternatives(usual: Product): { shown: Product[]; hiddenCount: number } {
-  const candidates = products.filter((p) => p.category === usual.category && p.id !== usual.id && p.kind !== 'refill');
+  const candidates = inCategory(usual).filter((p) => p.id !== usual.id && p.kind !== 'refill');
   const shown = candidates
     .filter((p) => plasticPer(p) < plasticPer(usual))
     .sort(
@@ -84,12 +86,12 @@ export function alternatives(usual: Product): { shown: Product[]; hiddenCount: n
 
 /** Zero-waste refill options for this product's category. */
 export function refillsFor(p: Product): Product[] {
-  return products.filter((x) => x.category === p.category && x.kind === 'refill');
+  return inCategory(p).filter((x) => x.kind === 'refill');
 }
 
 /** The bulk-sachet pack in the same category, if one exists. */
 export function bulkSachetIn(p: Product): Product | undefined {
-  return products.find((x) => x.category === p.category && x.kind === 'bulk-sachet' && x.id !== p.id);
+  return inCategory(p).find((x) => x.kind === 'bulk-sachet' && x.id !== p.id);
 }
 
 export interface Savings {

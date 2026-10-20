@@ -36,6 +36,21 @@ export const tx = (v: L | string) => (typeof v === 'string' ? v : v[lang]);
 
 const strings = {
   concept: { id: 'Konsep · data contoh', en: 'Concept · sample data' },
+  barcodeLabel: { id: 'Barcode produk', en: 'Product barcode' },
+  barcodePh: { id: 'Ketik barcode', en: 'Enter barcode' },
+  barcodeGo: { id: 'Cek', en: 'Check' },
+  loading: { id: 'Memuat…', en: 'Loading…' },
+  loadFail: { id: 'Daftar produk gagal dimuat. Coba muat ulang halaman.', en: 'Couldn’t load the product list. Try reloading the page.' },
+  navProducts: { id: 'Produk', en: 'Products' },
+  productsPh: { id: 'Cari produk atau merek', en: 'Search products or brands' },
+  allCategories: { id: 'Semua', en: 'All' },
+  resultsCount: { id: '{n} produk', en: '{n} products' },
+  showMore: { id: 'Tampilkan {n} lagi', en: 'Show {n} more' },
+  seeAllResults: { id: 'Lihat semua {n} hasil', en: 'See all {n} results' },
+  estimateLegend: {
+    id: '* = angka perkiraan, belum diukur langsung.',
+    en: '* = estimated, not measured yet.',
+  },
   navCheck: { id: 'Cek produk', en: 'Check' },
   navSavings: { id: 'Migrasi saya', en: 'My switches' },
   navWhy: { id: 'Kenapa?', en: 'Why?' },

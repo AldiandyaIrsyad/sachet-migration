@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "check:data": "node scripts/check-data.mjs",
+    "build": "node scripts/check-data.mjs && tsc --noEmit && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

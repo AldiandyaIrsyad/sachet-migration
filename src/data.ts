@@ -33,7 +33,6 @@ export type AddonId = 'sugar' | 'creamer' | 'milk';
 type PlasticInput = { total: number } | { perPortion: number };
 
 export type Estimate = 'price' | 'plastic' | 'portions';
-const ALL: Estimate[] = ['price', 'plastic', 'portions'];
 
 interface ProductInput {
   id: string;
@@ -139,254 +138,85 @@ export const addons: Record<AddonId, Addon> = {
   milk: { id: 'milk', name: { id: 'susu bubuk ±8 g', en: '≈8 g milk powder' }, costPerServing: 1050, plasticPerServing: 0.08 },
 };
 
-const REFILL_SHOP: L = { id: 'toko isi ulang terdekat', en: 'the nearest refill shop' };
-
-const inputs: ProductInput[] = [
-  // ── Flow 1: Coffee. Kapal Api renceng → Kapal Api ground, Nescafé jar ──
-  {
-    id: 'kapal-mix-renceng', barcode: '8990000000028', brand: 'Kapal Api', variant: 'special-mix',
-    name: 'Kapal Api Special Mix', pack: { id: 'Renceng isi 10 sachet', en: 'Renceng of 10 sachets' },
-    category: 'coffee', kind: 'renceng',
-    price: 15500, portions: 10, plastic: { perPortion: 1.2 }, estimated: ALL, noBigPack: true,
-  },
-  {
-    id: 'kapal-mix-single', barcode: '8990000000011', brand: 'Kapal Api', variant: 'special-mix',
-    name: 'Kapal Api Special Mix', pack: { id: '1 sachet 24 g', en: '1 sachet, 24 g' },
-    category: 'coffee', kind: 'sachet',
-    price: 1700, portions: 1, plastic: { total: 1.2 }, estimated: ALL, noBigPack: true,
-  },
-  {
-    id: 'kapal-mix-bag30', barcode: '8990000000035', brand: 'Kapal Api', variant: 'special-mix',
-    name: 'Kapal Api Special Mix', pack: { id: 'Sekantong isi 30 sachet', en: 'Bag of 30 sachets' },
-    category: 'coffee', kind: 'bulk-sachet',
-    price: 45000, portions: 30, plastic: { total: 30 * 1.2 + 6 }, estimated: ALL, noBigPack: true,
-  },
-  {
-    id: 'kapal-ground-165', barcode: '8990000000042', brand: 'Kapal Api', variant: 'special',
-    name: 'Kapal Api Special', pack: { id: 'Kopi bubuk, kantong 165 g', en: 'Ground coffee, 165 g bag' },
-    category: 'coffee', kind: 'bag',
-    price: 15000, portions: 16, plastic: { total: 6 }, addons: ['sugar'], addonsIf: ['special-mix'], estimated: ALL,
-    note: { id: 'Kopi hitam bubuk.', en: 'Black ground coffee.' },
-  },
-  {
-    id: 'nescafe-classic-100', barcode: '8990000000059', brand: 'Nescafé', variant: 'classic',
-    name: 'Nescafé Classic', pack: { id: 'Toples kaca 100 g', en: '100 g glass jar' },
-    category: 'coffee', kind: 'jar',
-    price: 65000, portions: 50, plastic: { total: 5 }, addons: ['sugar', 'creamer'], addonsIf: ['special-mix'], estimated: ALL,
-  },
-
-  // Aldiandya's own migration, MEASURED: bag of 10 × 2 g sachets = Rp 14.300, 1,4 g outer bag + 3,6 g for
-  // the 10 sachets = 5,0 g. 90 g pouch = Rp 56.700 for 45 cups, 4,1 g. Barcodes are still placeholders.
-  {
-    id: 'nescafe-classic-10x2', barcode: '8990000000066', brand: 'Nescafé', variant: 'classic',
-    name: 'Nescafé Classic', pack: { id: 'Sekantong isi 10 sachet × 2 g', en: 'Bag of 10 sachets × 2 g' },
-    category: 'coffee', kind: 'bulk-sachet',
-    price: 14300, portions: 10, plastic: { total: 1.4 + 3.6 },
-    addons: ['sugar', 'creamer'], addonsIf: ['special-mix'],
-  },
-  {
-    id: 'nescafe-classic-90', barcode: '8990000000073', brand: 'Nescafé', variant: 'classic',
-    name: 'Nescafé Classic', pack: { id: 'Pouch 90 g', en: '90 g pouch' },
-    category: 'coffee', kind: 'pouch',
-    price: 56700, portions: 45, plastic: { total: 4.1 },
-    addons: ['sugar', 'creamer'], addonsIf: ['special-mix'],
-    portionHint: { id: '2 g kopi = 1 gelas, sama seperti 1 sachet.', en: '2 g coffee = 1 cup, same as 1 sachet.' },
-  },
-
-  // ── Flow 2: Detergent. Rinso renceng → bigger bags + zero-waste refill ──
-  {
-    id: 'rinso-renceng', barcode: '8990000000202', brand: 'Rinso', variant: 'anti-noda',
-    name: 'Rinso Anti Noda', pack: { id: 'Renceng isi 6 sachet', en: 'Renceng of 6 sachets' },
-    category: 'detergent', kind: 'renceng',
-    price: 7500, portions: 6, plastic: { perPortion: 1 }, estimated: ALL,
-  },
-  {
-    id: 'rinso-800', barcode: '8990000000219', brand: 'Rinso', variant: 'anti-noda',
-    name: 'Rinso Anti Noda', pack: { id: 'Kantong 800 g', en: '800 g bag' },
-    category: 'detergent', kind: 'bag',
-    price: 22000, portions: 20, plastic: { total: 9 }, estimated: ALL,
-  },
-  {
-    id: 'rinso-1400', barcode: '8990000000226', brand: 'Rinso', variant: 'anti-noda',
-    name: 'Rinso Anti Noda', pack: { id: 'Kantong 1,4 kg', en: '1.4 kg bag' },
-    category: 'detergent', kind: 'bag',
-    price: 36000, portions: 35, plastic: { total: 12 }, estimated: ALL,
-  },
-  {
-    id: 'detergent-refill', barcode: '', brand: 'Refill', name: { id: 'Isi ulang deterjen', en: 'Detergent refill' },
-    pack: { id: 'Bawa wadah sendiri', en: 'Bring your own container' },
-    category: 'detergent', kind: 'refill',
-    price: 800, portions: 1, plastic: { total: 0 }, future: true, provider: REFILL_SHOP, estimated: ALL,
-  },
-
-  // ── Flow 3: Cereal. Koko Krunch cup → Koko Krunch 150 g pack ──
-  // MEASURED (Aldiandya): cup Rp 9.900, 20 g cereal + Dancow milk (add 80 ml water), 14,5 g plastic.
-  // 150 g pack Rp 25.100, 5,4 g plastic; 150 g ÷ 20 g = 7,5 cups' worth.
-  {
-    id: 'koko-cup', barcode: '8992696428263', brand: 'Nestlé', variant: 'koko-krunch',
-    name: 'Koko Krunch', pack: { id: 'Cup 30 g (20 g sereal + susu Dancow)', en: 'Cup, 30 g (20 g cereal + Dancow milk)' },
-    category: 'cereal', kind: 'cup',
-    price: 9900, portions: 1, plastic: { total: 14.5 },
-    note: { id: 'Tinggal tambah 80 ml air.', en: 'Just add 80 ml water.' },
-  },
-  {
-    id: 'koko-pack-150', barcode: '4800361002851', brand: 'Nestlé', variant: 'koko-krunch',
-    name: 'Koko Krunch', pack: { id: 'Kemasan 150 g', en: '150 g pack' },
-    category: 'cereal', kind: 'box',
-    price: 25100, portions: 7.5, plastic: { total: 5.4 }, addons: ['milk'],
-    portionHint: {
-      id: '20 g sereal + ±8 g susu bubuk + 80 ml air = 1 cup.',
-      en: '20 g cereal + ≈8 g milk powder + 80 ml water = 1 cup.',
-    },
-
-  },
-
-  // ── Flow 4: MILO. Bag of 18 sachets → 790 g pack ──
-  // MEASURED (Aldiandya): sachet bag = 9,3 g outer bag + 18 × 1,9 g sachets; each sachet makes 170 ml.
-  // 790 g pack = 11,6 g plastic. Label: 22 g per 150 ml (36 glasses). To match one sachet glass (170 ml),
-  // use 25 g per 170 ml → 790 / 25 ≈ 31,6 glasses.
-  {
-    id: 'milo-bag18', barcode: '8992696524323', brand: 'MILO', variant: 'activ-go-3in1',
-    name: 'MILO 3in1 Activ-Go', pack: { id: 'Sekantong isi 18 sachet', en: 'Bag of 18 sachets' },
-    category: 'chocolate', kind: 'bulk-sachet',
-    price: 72500, portions: 18, plastic: { total: 9.3 + 18 * 1.9 },
-  },
-  {
-    id: 'milo-790', barcode: '8992696427990', brand: 'MILO', variant: 'tiga-keunggulan',
-    name: 'MILO Tiga Keunggulan', pack: { id: 'Bubuk, kemasan 790 g', en: 'Powder, 790 g pack' },
-    category: 'chocolate', kind: 'pouch',
-    price: 84900, portions: 790 / 25, plastic: { total: 11.6 },
-    note: {
-      id: 'Sudah mengandung gula dan padatan susu, tinggal tambah air.',
-      en: 'Already contains sugar and milk solids; just add water.',
-    },
-    portionHint: {
-      id: '25 g bubuk + 170 ml air = 1 gelas, sama seperti 1 sachet.',
-      en: '25 g powder + 170 ml water = 1 glass, same as 1 sachet.',
-    },
-  },
-
-  // ── More products (not part of the three demo flows) ──
-
-  // Instant seasoning: no big pack on the shelf, so the swap is cooking from basics.
-  {
-    // MEASURED plastic: 2 g per sachet, 20 g seasoning for 2–4 plates (Aldiandya). Price is an estimate.
-    // No bigger pack at the minimarket.
-    id: 'sajiku-nasgor-ayam', barcode: '8990000000400', brand: 'Sajiku', variant: 'nasi-goreng-ayam',
-    name: 'Sajiku Nasi Goreng Rasa Ayam',
-    pack: { id: '1 sachet 20 g, untuk 2–4 porsi', en: '1 sachet, 20 g, for 2–4 plates' }, category: 'spice', kind: 'sachet',
-    price: 2000, portions: 1, plastic: { total: 2 }, estimated: ['price'], noBigPack: true,
-  },
-  {
-    id: 'nasgor-homemade', barcode: '', brand: 'Racik sendiri', variant: 'nasi-goreng',
-    name: { id: 'Bumbu nasi goreng racik sendiri', en: 'Homemade fried-rice seasoning' },
-    pack: { id: 'Bawang, cabai, kecap pouch besar', en: 'Shallot, garlic, chilli, big kecap pouch' },
-    category: 'spice', kind: 'homemade',
-    price: 1800, portions: 1, plastic: { total: 0.2 }, estimated: ALL,
-    note: {
-      id: 'Bawang dan cabai dari pasar tanpa kantong plastik, kecap dari pouch besar. Belum ada kemasan besar untuk bumbu instan ini.',
-      en: 'Shallots and chilli from the market without a plastic bag, kecap from a big pouch. There’s no big pack of this seasoning on the shelf yet.',
-    },
-  },
-
-  // Floor cleaner
-  {
-    id: 'soklin-lantai-renceng', barcode: '8990000000501', brand: 'So Klin', variant: 'lantai',
-    name: 'So Klin Lantai', pack: { id: 'Renceng isi 6 sachet', en: 'Renceng of 6 sachets' },
-    category: 'floor', kind: 'renceng',
-    price: 6000, portions: 6, plastic: { perPortion: 1 }, estimated: ALL,
-  },
-  {
-    id: 'soklin-lantai-800', barcode: '8990000000518', brand: 'So Klin', variant: 'lantai',
-    name: 'So Klin Lantai', pack: { id: 'Isi ulang 800 ml', en: '800 ml refill pouch' },
-    category: 'floor', kind: 'pouch',
-    price: 14000, portions: 20, plastic: { total: 10 }, estimated: ALL,
-  },
-  {
-    // MEASURED plastic: 26 g (Aldiandya). Price and number of mops are still estimates.
-    id: 'soklin-lantai-1400', barcode: '8990000000525', brand: 'So Klin', variant: 'lantai',
-    name: 'So Klin Lantai', pack: { id: 'Isi ulang 1,4 kg', en: '1.4 kg refill pouch' },
-    category: 'floor', kind: 'pouch',
-    price: 22000, portions: 35, plastic: { total: 26 }, estimated: ['price', 'portions'],
-  },
-  {
-    id: 'floor-refill', barcode: '', brand: 'Refill', name: { id: 'Isi ulang pembersih lantai', en: 'Floor cleaner refill' },
-    pack: { id: 'Bawa jeriken sendiri', en: 'Bring your own jerry can' },
-    category: 'floor', kind: 'refill',
-    price: 500, portions: 1, plastic: { total: 0 }, future: true, provider: REFILL_SHOP, estimated: ALL,
-  },
-
-  // Ironing spray
-  {
-    id: 'kispray-renceng', barcode: '8990000000103', brand: 'Kispray', variant: 'kispray',
-    name: 'Kispray', pack: { id: 'Renceng isi 12 sachet', en: 'Renceng of 12 sachets' },
-    category: 'ironing', kind: 'renceng',
-    price: 11000, portions: 3, plastic: { total: 12 }, estimated: ALL,
-  },
-  {
-    id: 'kispray-pouch300', barcode: '8990000000110', brand: 'Kispray', variant: 'kispray',
-    name: 'Kispray', pack: { id: 'Isi ulang 300 ml', en: '300 ml refill pouch' },
-    category: 'ironing', kind: 'pouch',
-    price: 9500, portions: 3, plastic: { total: 8 }, estimated: ALL,
-  },
-  {
-    id: 'kispray-pouch800', barcode: '8990000000127', brand: 'Kispray', variant: 'kispray',
-    name: 'Kispray', pack: { id: 'Isi ulang 800 ml', en: '800 ml refill pouch' },
-    category: 'ironing', kind: 'pouch',
-    price: 22500, portions: 8, plastic: { total: 14 }, estimated: ALL,
-  },
-  {
-    id: 'ironing-refill', barcode: '', brand: 'Refill', name: { id: 'Isi ulang pelicin', en: 'Ironing spray refill' },
-    pack: { id: 'Bawa botol sendiri', en: 'Bring your own bottle' },
-    category: 'ironing', kind: 'refill',
-    price: 2400, portions: 1, plastic: { total: 0 }, future: true, provider: REFILL_SHOP, estimated: ALL,
-  },
-
-  // Detergent, other brand
-  {
-    id: 'daia-1800', barcode: '8990000000233', brand: 'Daia', variant: 'daia',
-    name: 'Daia', pack: { id: 'Kantong 1,8 kg', en: '1.8 kg bag' },
-    category: 'detergent', kind: 'bag',
-    price: 33000, portions: 45, plastic: { total: 13 }, estimated: ALL,
-  },
-
-  // Condensed milk
-  {
-    id: 'ff-renceng', barcode: '8990000000301', brand: 'Frisian Flag', variant: 'putih',
-    name: 'Frisian Flag Kental Manis', pack: { id: 'Renceng isi 6 sachet', en: 'Renceng of 6 sachets' },
-    category: 'milk', kind: 'renceng',
-    price: 8500, portions: 6, plastic: { perPortion: 1 }, estimated: ALL,
-  },
-  {
-    id: 'ff-pouch545', barcode: '8990000000318', brand: 'Frisian Flag', variant: 'putih',
-    name: 'Frisian Flag Kental Manis', pack: { id: 'Pouch 545 g', en: '545 g pouch' },
-    category: 'milk', kind: 'pouch',
-    price: 14500, portions: 14.7, plastic: { total: 7 }, estimated: ALL,
-  },
-  {
-    id: 'ff-can370', barcode: '8990000000325', brand: 'Frisian Flag', variant: 'putih',
-    name: 'Frisian Flag Kental Manis', pack: { id: 'Kaleng 370 g', en: '370 g can' },
-    category: 'milk', kind: 'can',
-    price: 12500, portions: 10, plastic: { total: 0 }, estimated: ALL,
-    note: { id: 'Kaleng besi, mudah didaur ulang.', en: 'Steel can, widely recycled.' },
-  },
-];
+// ─────────────────────────────────────────────────────────────────────────────
+// The catalogue lives in public/data/products.json and is loaded at start-up, so the
+// code bundle stays small however many products it holds. Everything below builds
+// lookup tables once, so finding a product never means scanning the whole list.
+// ─────────────────────────────────────────────────────────────────────────────
 
 const SINGLE_USE: Kind[] = ['sachet', 'renceng', 'bulk-sachet', 'cup'];
 
-export const products: Product[] = inputs.map(({ portions, plastic, ...rest }) => ({
-  ...rest,
-  servings: portions,
-  plasticG: 'total' in plastic ? plastic.total : plastic.perPortion * portions,
-  sachets: SINGLE_USE.includes(rest.kind) ? portions : 0,
-}));
+export let products: Product[] = [];
+export let productById = new Map<string, Product>();
+export let byCategory = new Map<CategoryId, Product[]>();
+let byBarcode = new Map<string, Product>();
+/** Lower-cased searchable text per product, in both languages. */
+let haystack = new Map<string, string>();
 
-export const productById = new Map(products.map((p) => [p.id, p]));
+function derive({ portions, plastic, ...rest }: ProductInput): Product {
+  return {
+    ...rest,
+    servings: portions,
+    plasticG: 'total' in plastic ? plastic.total : plastic.perPortion * portions,
+    sachets: SINGLE_USE.includes(rest.kind) ? portions : 0,
+  };
+}
+
+export async function loadCatalog(): Promise<void> {
+  const res = await fetch(`${import.meta.env.BASE_URL}data/products.json`);
+  if (!res.ok) throw new Error(`products.json: ${res.status}`);
+  const inputs = (await res.json()) as ProductInput[];
+
+  products = inputs.map(derive);
+  productById = new Map(products.map((p) => [p.id, p]));
+  byBarcode = new Map(products.filter((p) => p.barcode).map((p) => [p.barcode, p]));
+  byCategory = new Map();
+  for (const p of products) {
+    const list = byCategory.get(p.category);
+    if (list) list.push(p);
+    else byCategory.set(p.category, [p]);
+  }
+  haystack = new Map(
+    products.map((p) => [
+      p.id,
+      `${typeof p.name === 'string' ? p.name : `${p.name.id} ${p.name.en}`} ${p.brand} ${p.pack.id} ${p.pack.en} ${categories[p.category].label.id} ${categories[p.category].label.en}`.toLowerCase(),
+    ]),
+  );
+}
+
+/** Products worth listing to a shopper (not refill previews or homemade tips). */
+export const isListed = (p: Product) => !p.future && p.kind !== 'homemade';
 
 export function findByBarcode(code: string): Product | undefined {
   const clean = code.replace(/\D/g, '');
+  const exact = byBarcode.get(clean);
+  if (exact) return exact;
   // Typing 12 digits (without the check digit) should still find the product.
-  return products.find((p) => p.barcode && (p.barcode === clean || (clean.length === 12 && p.barcode.startsWith(clean))));
+  if (clean.length === 12) return products.find((p) => p.barcode.startsWith(clean));
+  return undefined;
+}
+
+/**
+ * Ranked search: every word must appear; names that start with the query rank first,
+ * then whole-word hits, then anywhere. Returns the top `limit` and the total hit count.
+ */
+export function search(query: string, limit: number): { hits: Product[]; total: number } {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const digits = query.replace(/\D/g, '');
+  const scored: { p: Product; score: number }[] = [];
+  for (const p of products) {
+    if (!isListed(p)) continue;
+    const text = haystack.get(p.id)!;
+    if (digits.length >= 4 && p.barcode.includes(digits)) {
+      scored.push({ p, score: 0 });
+      continue;
+    }
+    if (!words.every((w) => text.includes(w))) continue;
+    const startsWith = words.every((w) => text.startsWith(w) || text.includes(` ${w}`));
+    scored.push({ p, score: text.startsWith(words[0]) ? 1 : startsWith ? 2 : 3 });
+  }
+  scored.sort((a, b) => a.score - b.score);
+  return { hits: scored.slice(0, limit).map((x) => x.p), total: scored.length };
 }
 
 export const kindLabel: Record<Kind, L> = {
