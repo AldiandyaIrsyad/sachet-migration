@@ -12,7 +12,7 @@ function initialLang(): Lang {
   } catch {
     // ignore
   }
-  return 'id';
+  return 'en';
 }
 
 let lang: Lang = initialLang();
