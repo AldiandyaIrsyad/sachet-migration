@@ -1,5 +1,4 @@
 import type { L } from './i18n';
-import type { CatalogSource } from './ports';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HOW TO ADD OR EDIT A PRODUCT
@@ -74,6 +73,10 @@ export interface Product extends Omit<ProductInput, 'portions' | 'plastic'> {
   plasticG: number;
   /** Single-use packs thrown away per pack (sachets, cups). */
   sachets: number;
+  /** Shelf price per portion. */
+  costPer: number;
+  /** Grams of plastic per portion. */
+  plasticPer: number;
 }
 
 export interface Category {
@@ -147,84 +150,10 @@ export const addons: Record<AddonId, Addon> = {
   milk: { id: 'milk', name: { id: 'susu bubuk ±8 g', en: '≈8 g milk powder' }, costPerServing: 1050, plasticPerServing: 0.08 },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// The catalogue lives in public/data/products.json and is loaded at start-up, so the
-// code bundle stays small however many products it holds. Everything below builds
-// lookup tables once, so finding a product never means scanning the whole list.
-// ─────────────────────────────────────────────────────────────────────────────
-
 const SINGLE_USE: Kind[] = ['sachet', 'renceng', 'bulk-sachet', 'cup'];
-
-export let products: Product[] = [];
-export let productById = new Map<string, Product>();
-export let byCategory = new Map<CategoryId, Product[]>();
-let byBarcode = new Map<string, Product>();
-/** Lower-cased searchable text per product, in both languages. */
-let haystack = new Map<string, string>();
-
-function derive({ portions, plastic, ...rest }: ProductInput): Product {
-  return {
-    ...rest,
-    servings: portions,
-    plasticG: 'total' in plastic ? plastic.total : plastic.perPortion * portions,
-    sachets: SINGLE_USE.includes(rest.kind) ? portions : 0,
-  };
-}
-
-export async function loadCatalog(source: CatalogSource): Promise<void> {
-  const inputs = await source.load();
-
-  products = inputs.map(derive);
-  productById = new Map(products.map((p) => [p.id, p]));
-  byBarcode = new Map(products.filter((p) => p.barcode).map((p) => [p.barcode, p]));
-  byCategory = new Map();
-  for (const p of products) {
-    const list = byCategory.get(p.category);
-    if (list) list.push(p);
-    else byCategory.set(p.category, [p]);
-  }
-  haystack = new Map(
-    products.map((p) => [
-      p.id,
-      `${typeof p.name === 'string' ? p.name : `${p.name.id} ${p.name.en}`} ${p.brand} ${p.pack.id} ${p.pack.en} ${categories[p.category].label.id} ${categories[p.category].label.en}`.toLowerCase(),
-    ]),
-  );
-}
 
 /** Products worth listing to a shopper (not refill previews or homemade tips). */
 export const isListed = (p: Product) => !p.future && p.kind !== 'homemade';
-
-export function findByBarcode(code: string): Product | undefined {
-  const clean = code.replace(/\D/g, '');
-  const exact = byBarcode.get(clean);
-  if (exact) return exact;
-  // Typing 12 digits (without the check digit) should still find the product.
-  if (clean.length === 12) return products.find((p) => p.barcode.startsWith(clean));
-  return undefined;
-}
-
-/**
- * Ranked search: every word must appear; names that start with the query rank first,
- * then whole-word hits, then anywhere. Returns the top `limit` and the total hit count.
- */
-export function search(query: string, limit: number): { hits: Product[]; total: number } {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const digits = query.replace(/\D/g, '');
-  const scored: { p: Product; score: number }[] = [];
-  for (const p of products) {
-    if (!isListed(p)) continue;
-    const text = haystack.get(p.id)!;
-    if (digits.length >= 4 && p.barcode.includes(digits)) {
-      scored.push({ p, score: 0 });
-      continue;
-    }
-    if (!words.every((w) => text.includes(w))) continue;
-    const startsWith = words.every((w) => text.startsWith(w) || text.includes(` ${w}`));
-    scored.push({ p, score: text.startsWith(words[0]) ? 1 : startsWith ? 2 : 3 });
-  }
-  scored.sort((a, b) => a.score - b.score);
-  return { hits: scored.slice(0, limit).map((x) => x.p), total: scored.length };
-}
 
 export const kindLabel: Record<Kind, L> = {
   sachet: { id: 'Sachet', en: 'Sachet' },

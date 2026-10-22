@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-demo
+.git
+.github
+.claude
+docs
+tests
+server/*.db
+server/*.db-*
+*.log

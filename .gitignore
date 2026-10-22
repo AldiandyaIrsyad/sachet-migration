@@ -5,3 +5,6 @@ dist
 # Private drafts and tooling, not part of the app
 docs/
 .claude/
+*.db
+*.db-*
+dist-demo

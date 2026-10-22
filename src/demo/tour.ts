@@ -1,6 +1,6 @@
 import { t, type StringKey } from '../i18n';
 import { features } from '../features';
-import { buyAgain, migrate, resetMigrations } from '../store';
+import { backend } from '../backend';
 
 // A skippable walkthrough that drives the real app with the MILO example.
 const SEEN_KEY = 'sachet-demo:tour-seen';
@@ -30,10 +30,10 @@ async function typeBarcode() {
   document.querySelector<HTMLFormElement>('#barcode-form')?.requestSubmit();
 }
 
-function switchAndBuy() {
-  migrate('milo-bag18', 'milo-790');
-  buyAgain('milo-bag18');
-  buyAgain('milo-bag18');
+async function switchAndBuy() {
+  await backend().migrate('milo-bag18', 'milo-790');
+  await backend().buyAgain('milo-bag18');
+  await backend().buyAgain('milo-bag18');
 }
 
 const steps: Step[] = [
@@ -121,9 +121,8 @@ async function next() {
   }
 }
 
-function start() {
+async function start() {
   if (root) return;
-  resetMigrations();
   root = document.createElement('div');
   root.className = 'tour';
   root.innerHTML = `
@@ -144,12 +143,13 @@ function start() {
   });
   document.body.append(root);
   document.addEventListener('keydown', onKey);
+  await backend().reset();
   void show(0);
 }
 
 export function replayTour() {
   location.hash = '#/';
-  void wait(60).then(start);
+  void wait(60).then(() => start());
 }
 
 export function startTourIfFirstVisit() {
@@ -159,5 +159,5 @@ export function startTourIfFirstVisit() {
   } catch {
     // ignore
   }
-  if (!seen) start();
+  if (!seen) void start();
 }

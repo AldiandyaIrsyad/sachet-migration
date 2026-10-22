@@ -1,5 +1,5 @@
 import type { IScannerControls } from '@zxing/browser';
-import { findByBarcode, search } from './data';
+import { backend } from './backend';
 import { features } from './features';
 import { t } from './i18n';
 import { scanFromCamera, scanFromImage } from './scanner';
@@ -10,21 +10,30 @@ import { esc, productRow } from './ui';
 const SEARCH_PREVIEW = 6;
 
 let camera: IScannerControls | null = null;
+/** Bumped on every stop, so a camera that finishes starting after you left the page can tell and shut itself off. */
+let cameraRun = 0;
 
 export function stopCamera() {
+  cameraRun++;
   camera?.stop();
   camera = null;
 }
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel);
 
-export function handleCode(code: string) {
-  const p = findByBarcode(code.replace(/\s/g, ''));
+export async function handleCode(code: string) {
+  const msg = $('#scan-msg');
+  let p;
+  try {
+    p = await backend().barcode(code.replace(/\s/g, ''));
+  } catch {
+    if (msg) msg.textContent = t('loadFail');
+    return;
+  }
   if (p) {
     location.hash = `#/p/${p.id}`;
     return;
   }
-  const msg = $('#scan-msg');
   if (msg) msg.innerHTML = t('unknownCode', { code: `<b>${esc(code)}</b>` });
 }
 
@@ -35,13 +44,19 @@ export async function onLookupClick(el: HTMLElement): Promise<boolean> {
     const msg = $<HTMLDivElement>('#scan-msg')!;
     vf.hidden = false;
     msg.textContent = t('aim');
+    stopCamera();
+    const run = cameraRun;
     try {
-      camera = await scanFromCamera($<HTMLVideoElement>('#video')!, (code) => {
+      const controls = await scanFromCamera($<HTMLVideoElement>('#video')!, (code) => {
+        if (run !== cameraRun) return;
         camera = null;
         vf.hidden = true;
-        handleCode(code);
+        void handleCode(code);
       });
+      if (run === cameraRun) camera = controls;
+      else controls.stop();
     } catch {
+      if (run !== cameraRun) return true;
       vf.hidden = true;
       msg.textContent = t('camFail');
     }
@@ -54,7 +69,7 @@ export async function onLookupClick(el: HTMLElement): Promise<boolean> {
     return true;
   }
   if (el.id === 'use-example' && features.exampleBarcode) {
-    handleCode(features.exampleBarcode);
+    await handleCode(features.exampleBarcode);
     return true;
   }
   return false;
@@ -62,7 +77,7 @@ export async function onLookupClick(el: HTMLElement): Promise<boolean> {
 
 export function onBarcodeSubmit(form: HTMLFormElement) {
   const code = form.querySelector<HTMLInputElement>('#barcode')!.value.trim();
-  if (code) handleCode(code);
+  if (code) void handleCode(code);
 }
 
 export async function onPhotoChosen(input: HTMLInputElement) {
@@ -71,7 +86,7 @@ export async function onPhotoChosen(input: HTMLInputElement) {
   if (!file) return;
   msg.textContent = t('reading');
   try {
-    handleCode(await scanFromImage(file));
+    await handleCode(await scanFromImage(file));
   } catch {
     msg.textContent = t('noCode');
   }
@@ -79,23 +94,30 @@ export async function onPhotoChosen(input: HTMLInputElement) {
 }
 
 let searchTimer = 0;
-/** Debounced, so typing quickly doesn't rank the whole catalogue on every keystroke. */
+let searchRun = 0;
+/** Debounced, so typing quickly doesn't query on every keystroke. Late answers to old queries are dropped. */
 export function onSearchInput(input: HTMLInputElement) {
   clearTimeout(searchTimer);
-  searchTimer = window.setTimeout(() => {
+  searchTimer = window.setTimeout(async () => {
     const q = input.value.trim();
     const out = $<HTMLDivElement>('#search-results');
     if (!out) return;
+    const run = ++searchRun;
     if (!q) {
       out.innerHTML = '';
       return;
     }
-    const { hits, total } = search(q, SEARCH_PREVIEW);
-    out.innerHTML = hits.length
-      ? hits.map(productRow).join('') +
-        (total > hits.length
-          ? `<a class="btn" href="#/produk?q=${encodeURIComponent(q)}">${t('seeAllResults', { n: total })}</a>`
-          : '')
-      : `<p class="hint">${t('notFound')}</p>`;
+    try {
+      const { items, total } = await backend().list({ q, limit: SEARCH_PREVIEW });
+      if (run !== searchRun || !out.isConnected) return;
+      out.innerHTML = items.length
+        ? items.map(productRow).join('') +
+          (total > items.length
+            ? `<a class="btn" href="#/produk?q=${encodeURIComponent(q)}">${t('seeAllResults', { n: total })}</a>`
+            : '')
+        : `<p class="hint">${t('notFound')}</p>`;
+    } catch {
+      if (run === searchRun) out.innerHTML = `<p class="hint">${t('loadFail')}</p>`;
+    }
   }, 120);
 }

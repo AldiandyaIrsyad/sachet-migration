@@ -6,7 +6,17 @@ const files = readdirSync(dataDir).filter((f) => f.endsWith('.json'));
 // Every catalogue file is checked together, so ids and barcodes stay unique across base and demo data.
 const products = files.flatMap((f) => JSON.parse(readFileSync(new URL(f, dataDir), 'utf8')));
 const src = readFileSync(new URL('../src/data.ts', import.meta.url), 'utf8');
-const list = (name) => [...src.match(new RegExp(`export type ${name}\\s*=([^;]+);`))[1].matchAll(/'([\w-]+)'/g)].map((m) => m[1]);
+// Comments are stripped first so they can't confuse the union-type reader below.
+const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+const list = (name) => {
+  const m = code.match(new RegExp(`export type ${name}\\s*=([^;]+);`));
+  const values = m ? [...m[1].matchAll(/'([\w-]+)'/g)].map((x) => x[1]) : [];
+  if (!values.length) {
+    console.error(`check-data: could not read "export type ${name} = '…' | '…';" from src/data.ts. Keep it in that form or update this script.`);
+    process.exit(1);
+  }
+  return values;
+};
 const categories = list('CategoryId');
 const kinds = list('Kind');
 const addons = list('AddonId');

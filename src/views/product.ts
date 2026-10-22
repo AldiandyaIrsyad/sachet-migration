@@ -1,8 +1,8 @@
-import { alternatives, appliedAddons, bulkSachetIn, closeness, compare, costPer, matchedPer, plasticPer, refillsFor, sachetsPer } from '../calc';
-import { categories, isSachetKind, kindLabel, productById, products, type Product } from '../data';
+import { backend } from '../backend';
+import { categories, isSachetKind, kindLabel, type Product } from '../data';
 import { t, tx } from '../i18n';
 import { packIcon } from '../icons';
-import { getMigration, migrationTo } from '../store';
+import type { ProductPage, Swap, Warning } from '../ports';
 import { count, dec1, esc, grams, name, pack, pct, rp, star, unit } from '../ui';
 
 // ---------- product ----------
@@ -14,23 +14,36 @@ const packNoun = (p: Product) => tx(kindLabel[p.kind]).toLowerCase();
 function usualAmount(usual: Product, portions: number): string {
   if (usual.sachets > 0) {
     const noun = usual.kind === 'cup' ? 'cup' : 'sachet';
-    return `${dec1(portions * sachetsPer(usual))} ${noun}`;
+    return `${dec1((portions * usual.sachets) / usual.servings)} ${noun}`;
   }
   return `${dec1(portions / usual.servings)} ${packNoun(usual)}`;
 }
 
 /** Your status with this product: add it as yours, or see what you switched to. */
-function mineBlock(p: Product): string {
-  const m = getMigration(p.id);
-  const switchedHere = migrationTo(p.id);
-  if (switchedHere) return `<p class="mine done">${t('newMine')}</p>`;
-  if (!m) {
+function mineBlock(page: ProductPage): string {
+  const { product: p, mine } = page;
+  if (mine.state === 'target') return `<p class="mine done">${t('newMine')}</p>`;
+  if (mine.state === 'none') {
     return `<button class="btn mine-btn" type="button" data-mine="${p.id}">${t('mine')}</button>`;
   }
-  const to = m.to ? productById.get(m.to) : undefined;
-  return to
-    ? `<a class="callout mine-switched" href="#/migrasi">${t('alreadySwitched', { name: `${name(to)}, ${pack(to)}` })}</a>`
+  return mine.state === 'switched' && mine.to
+    ? `<a class="callout mine-switched" href="#/migrasi">${t('alreadySwitched', { name: `${name(mine.to)}, ${pack(mine.to)}` })}</a>`
     : `<p class="mine done">${t('mineDone')}</p>`;
+}
+
+function warningBlock(p: Product, w: Warning | undefined): string {
+  if (!w) return '';
+  if (w.type === 'trap') {
+    return w.ref
+      ? `<div class="callout bad">${t('trap', { n: dec1(w.n), ref: packNoun(w.ref), money: rp(w.money) })}</div>`
+      : `<div class="callout bad">${t('trapGeneric', { n: p.sachets, g: grams(p.plasticG) })}</div>`;
+  }
+  return `<div class="callout">${t('bulkNudge', {
+    bulk: esc(tx(w.bulk.pack).toLowerCase()),
+    n: dec1(w.n),
+    pack: packNoun(p),
+    money: rp(w.money),
+  })}</div>`;
 }
 
 const SWAP_PAGE = 5;
@@ -40,40 +53,18 @@ export const showMoreSwaps = () => {
   swapLimit += SWAP_PAGE;
 };
 
-export function productView(p: Product): string {
-  const c = p.category;
-  const { shown: allSwaps, hiddenCount } = alternatives(p);
-  if (swapFor !== p.id) {
-    swapFor = p.id;
+/** The product screen, or null when there is no such product. */
+export async function productView(id: string): Promise<string | null> {
+  if (swapFor !== id) {
+    swapFor = id;
     swapLimit = SWAP_PAGE;
   }
-  const shown = allSwaps.slice(0, swapLimit);
-  const refills = p.kind === 'refill' ? [] : refillsFor(p);
-  const bulk = bulkSachetIn(p);
-
-  let warning = '';
-  if (p.kind === 'bulk-sachet') {
-    const ref = products
-      .filter((x) => x.brand === p.brand && x.variant === p.variant && x.kind === 'renceng')
-      .sort((a, b) => costPer(a) - costPer(b))[0];
-    warning = ref
-      ? `<div class="callout bad">${t('trap', {
-          n: dec1(p.servings / ref.servings),
-          ref: packNoun(ref),
-          money: rp(compare(ref, p).savePerServing * p.servings),
-        })}</div>`
-      : `<div class="callout bad">${t('trapGeneric', { n: p.sachets, g: grams(p.plasticG) })}</div>`;
-  } else if (isSachetKind(p.kind) && bulk) {
-    warning = `<div class="callout">${t('bulkNudge', {
-      bulk: esc(tx(bulk.pack).toLowerCase()),
-      n: dec1(bulk.servings / p.servings),
-      pack: packNoun(p),
-      money: rp(compare(p, bulk).savePerServing * bulk.servings),
-    })}</div>`;
-  }
+  const page = await backend().productPage(id, swapLimit);
+  if (!page) return null;
+  const { product: p, swaps: shown, refills } = page;
 
   const swaps = shown.length
-    ? shown.map((alt) => swapCard(p, alt)).join('')
+    ? shown.map((s) => swapCard(p, s)).join('')
     : `<p class="hint">${t('noSwaps')}</p>`;
 
   return `
@@ -88,37 +79,26 @@ export function productView(p: Product): string {
     </header>
 
     <div class="shelf-label">
-      <span class="sl-price">${rp(costPer(p))}${star(['price', 'portions'], p)}</span>
-      <span class="sl-unit">${t('per', { unit: unit(c) })}</span>
+      <span class="sl-price">${rp(p.costPer)}${star(['price', 'portions'], p)}</span>
+      <span class="sl-unit">${t('per', { unit: unit(p.category) })}</span>
     </div>
 
-    ${mineBlock(p)}
-    ${warning}
-    ${p.noBigPack ? demandCard(p) : ''}
+    ${mineBlock(page)}
+    ${warningBlock(p, page.warning)}
+    ${p.noBigPack ? demandCard(page) : ''}
 
     <h2>${t('swaps')}</h2>
     <div class="swaps">${swaps}</div>
-    ${allSwaps.length > shown.length ? `<button class="btn more" type="button" data-more-swaps>${t('showMore', { n: allSwaps.length - shown.length })}</button>` : ''}
-    ${hiddenCount ? `<p class="hint">${t('hidden', { n: hiddenCount })}</p>` : ''}
+    ${page.totalSwaps > shown.length ? `<button class="btn more" type="button" data-more-swaps>${t('showMore', { n: page.totalSwaps - shown.length })}</button>` : ''}
+    ${page.hiddenCount ? `<p class="hint">${t('hidden', { n: page.hiddenCount })}</p>` : ''}
     ${refills.length ? `<h2>${t('refillTitle')}</h2><div class="swaps">${refills.map((r) => refillCard(p, r)).join('')}</div>` : ''}
-    ${[p, ...shown, ...refills].some((x) => x.estimated?.length) ? `<p class="footnote"><sup class="est">*</sup> ${t('estimateNote')}</p>` : ''}`;
+    ${[p, ...shown.map((s) => s.product), ...refills.map((s) => s.product)].some((x) => x.estimated?.length) ? `<p class="footnote"><sup class="est">*</sup> ${t('estimateNote')}</p>` : ''}`;
 }
 
-// Requests for a bigger pack, kept on this phone. In the full version they'd feed the community database.
-export const WANT_KEY = 'sachet-migration:want-big';
-export function wanted(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem(WANT_KEY) ?? '[]');
-  } catch {
-    return [];
-  }
-}
-
-function demandCard(p: Product): string {
-  const done = wanted().includes(p.id);
+function demandCard({ product: p, wanted }: ProductPage): string {
   return `<div class="callout demand">
     <p>${t('noBigPack')}</p>
-    <button class="btn" type="button" data-want="${p.id}"${done ? ' disabled' : ''}>${done ? t('wantBigDone') : t('wantBig')}</button>
+    <button class="btn" type="button" data-want="${p.id}"${wanted ? ' disabled' : ''}>${wanted ? t('wantBigDone') : t('wantBig')}</button>
   </div>`;
 }
 
@@ -126,8 +106,7 @@ function demandCard(p: Product): string {
  * Two tiles for the whole purchase: money saved and plastic cut when you buy `portions`
  * of the alternative instead of the same amount of your usual product. Per-portion figures sit underneath.
  */
-function impactTiles(usual: Product, alt: Product, portions: number): string {
-  const cmp = compare(usual, alt);
+function impactTiles(usual: Product, { product: alt, comparison: cmp }: Swap, portions: number): string {
   const u = unit(usual.category);
   const money = cmp.savePerServing * portions;
   const plastic = cmp.plasticSavedPerServing * portions;
@@ -161,7 +140,8 @@ function portionHint(p: Product) {
   return p.portionHint ? `<p class="portion"><b>${t('portionLabel')}</b> ${esc(tx(p.portionHint))}</p>` : '';
 }
 
-function refillCard(usual: Product, r: Product): string {
+function refillCard(usual: Product, swap: Swap): string {
+  const r = swap.product;
   // A refill has no pack size, so compare with one pack of the usual product.
   return `<article class="swap is-future">
     <div class="swap-head">
@@ -173,23 +153,20 @@ function refillCard(usual: Product, r: Product): string {
       </div>
     </div>
     ${buyIntro(usual, usual.servings)}
-    ${impactTiles(usual, r, usual.servings)}
+    ${impactTiles(usual, swap, usual.servings)}
     <p class="same-amount">${t('zeroTrash')}.</p>
   </article>`;
 }
 
-function swapCard(usual: Product, alt: Product): string {
+function swapCard(usual: Product, swap: Swap): string {
+  const { product: alt, comparison: cmp, matched, closeness: near } = swap;
   const c = usual.category;
-  const cmp = compare(usual, alt);
-  const packsKept = (sachetsPer(usual) - sachetsPer(alt)) * alt.servings;
-  const near = closeness(usual, alt);
   const badge = `<span class="badge${near === 0 ? ' same' : ''}">${
     near === 0 ? t('sameVariant') : near === 1 ? t('sameBrand') : t('otherBrand')
   }</span>`;
-  const isCurrent = getMigration(usual.id)?.to === alt.id;
-  const addonList = appliedAddons(usual, alt).map((a) => tx(a.name)).join(', ');
+  const addonList = swap.addons.map((a) => tx(a.name)).join(', ');
 
-  return `<article class="swap${isCurrent ? ' is-current' : ''}">
+  return `<article class="swap${swap.current ? ' is-current' : ''}">
     <div class="swap-head">
       ${packIcon(alt.kind, 52)}
       <div class="swap-title">
@@ -199,23 +176,23 @@ function swapCard(usual: Product, alt: Product): string {
       </div>
     </div>
     ${buyIntro(usual, alt.servings)}
-    ${impactTiles(usual, alt, alt.servings)}
-    ${packsKept >= 1 ? `<p class="same-amount">${t('sachetsKept', { n: count(packsKept) })}.</p>` : ''}
+    ${impactTiles(usual, swap, alt.servings)}
+    ${swap.sachetsKept >= 1 ? `<p class="same-amount">${t('sachetsKept', { n: count(swap.sachetsKept) })}.</p>` : ''}
     ${portionHint(alt)}
     ${addonList ? `<p class="note">${t('addonIncluded', { list: esc(addonList) })}</p>` : ''}
     ${alt.note ? `<p class="note">${esc(tx(alt.note))}</p>` : ''}
     <details class="math">
       <summary>${t('showMath')}</summary>
       <dl>
-        <dt>${t('mPrice', { unit: unit(c) })}</dt><dd>${rp(matchedPer(usual, alt).cost)} <small>${t('mVs', { name: rp(costPer(usual)) })}</small></dd>
-        <dt>${t('mPlastic', { unit: unit(c) })}</dt><dd>${grams(matchedPer(usual, alt).plastic)} <small>${t('mVs', { name: grams(plasticPer(usual)) })}</small></dd>
+        <dt>${t('mPrice', { unit: unit(c) })}</dt><dd>${rp(matched.cost)} <small>${t('mVs', { name: rp(usual.costPer) })}</small></dd>
+        <dt>${t('mPlastic', { unit: unit(c) })}</dt><dd>${grams(matched.plastic)} <small>${t('mVs', { name: grams(usual.plasticPer) })}</small></dd>
         <dt>${cmp.dCost <= 0 ? t('mCheaper') : t('mPricier')}</dt><dd>${pct(cmp.dCost)}</dd>
         <dt>${t('mLessPlastic')}</dt><dd>${pct(cmp.dPlastic)}</dd>
         ${cmp.wasteTolerance >= 0.01 ? `<dt class="full">${t('mWaste', { pct: pct(cmp.wasteTolerance) })}</dt>` : ''}
       </dl>
     </details>
     ${
-      isCurrent
+      swap.current
         ? `<button class="btn" type="button" disabled>${t('newMine')}</button>`
         : `<button class="btn primary" type="button" data-migrate="${alt.id}" data-base="${usual.id}">${t('migrate')}</button>`
     }

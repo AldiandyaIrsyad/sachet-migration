@@ -1,4 +1,3 @@
-import { costPer } from './calc';
 import { categories, type CategoryId, type Estimate, type Product } from './data';
 import { getLang, t, tx } from './i18n';
 import { packIcon } from './icons';
@@ -34,6 +33,6 @@ export function productRow(p: Product) {
   return `<a class="row" href="#/p/${p.id}">
     ${packIcon(p.kind)}
     <span class="row-main"><b>${name(p)}</b><small>${pack(p)}</small></span>
-    <span class="row-val">${rp(costPer(p))}${star(['price', 'portions'], p)}<small>${t('per', { unit: unit(p.category) })}</small></span>
+    <span class="row-val">${rp(p.costPer)}${star(['price', 'portions'], p)}<small>${t('per', { unit: unit(p.category) })}</small></span>
   </a>`;
 }

@@ -1,26 +1,26 @@
-import { LocalMigrationStore } from './adapters/local-store';
-import { StaticCatalog } from './adapters/static-catalog';
-import { loadCatalog } from './data';
+import { ApiBackend } from './adapters/api-backend';
+import { provideBackend } from './backend';
 import { provideFeatures } from './features';
-import { provideStore } from './store';
 
 /**
  * The one place that decides what the app is plugged into.
  *
- *   app   (default)  catalogue shipped as JSON, switches kept in this browser.
- *   demo             same code, plus extra sample products, a guided walkthrough and a
- *                    "this is a demo" notice. Build it with `npm run build:demo`.
- *
- * A backend-driven build would add an adapter for CatalogSource and MigrationStore (src/ports.ts)
- * and a new mode here; no view needs to change.
+ *   app   (default)  the Go server does the work and keeps each visitor's switches (see server/).
+ *                    Build it with `npm run build`; `npm run dev` proxies /api to a local server.
+ *   demo             no server: the same logic runs in the browser, switches live in localStorage,
+ *                    plus a "this is a demo" notice and a guided walkthrough. This is what GitHub Pages
+ *                    publishes (`npm run build:demo`). The demo code is loaded only in this mode.
  */
 export async function compose(mode: string): Promise<void> {
   if (mode === 'demo') {
-    provideStore(new LocalMigrationStore('sachet-demo:migrations'));
+    const [{ LocalBackend }, { LocalMigrationStore }] = await Promise.all([
+      import('./demo/local-backend'),
+      import('./demo/local-store'),
+    ]);
+    const store = new LocalMigrationStore('sachet-demo:migrations', 'sachet-demo:want-big');
+    provideBackend(await LocalBackend.create(store, ['data/products.json', 'data/demo-products.json']));
     provideFeatures({ demoBanner: true, exampleBarcode: '8992696524323', tour: true });
-    await loadCatalog(new StaticCatalog(['data/products.json', 'data/demo-products.json']));
     return;
   }
-  provideStore(new LocalMigrationStore('sachet-migration:migrations'));
-  await loadCatalog(new StaticCatalog(['data/products.json']));
+  provideBackend(new ApiBackend());
 }

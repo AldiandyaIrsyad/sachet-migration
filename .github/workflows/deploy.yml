@@ -24,6 +24,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm test
       # GitHub Pages hosts the interactive demo build (see src/compose.ts).
       - run: npm run build:demo
       - uses: actions/upload-pages-artifact@v3

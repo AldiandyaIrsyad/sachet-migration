@@ -1,18 +1,13 @@
-import { migrationSavings, totals } from '../calc';
-import { productById } from '../data';
+import { backend } from '../backend';
 import { t } from '../i18n';
 import { packIcon } from '../icons';
-import { getMigrations, type Migration } from '../store';
+import type { MigrationItem } from '../ports';
 import { count, grams, name, pack, rp } from '../ui';
 
 // ---------- my migrations ----------
 
-function migrationCard(m: Migration): string {
-  const base = productById.get(m.base);
-  if (!base) return '';
-  const to = m.to ? productById.get(m.to) : undefined;
-
-  if (!to) {
+function migrationCard({ migration: m, base, to, savings: s }: MigrationItem): string {
+  if (!to || !s) {
     return `<div class="mig">
       <div class="mig-pair">
         ${packIcon(base.kind, 40)}
@@ -26,7 +21,6 @@ function migrationCard(m: Migration): string {
     </div>`;
   }
 
-  const s = migrationSavings(m)!;
   return `<div class="mig">
     <div class="mig-pair">
       ${packIcon(base.kind, 40)}
@@ -49,10 +43,9 @@ function migrationCard(m: Migration): string {
   </div>`;
 }
 
-export function migrationsView(): string {
-  const ms = getMigrations();
+export async function migrationsView(): Promise<string> {
+  const { items: ms, totals: tot } = await backend().migrations();
   const switched = ms.filter((m) => m.to);
-  const tot = totals(ms);
   const shareMsg = t('shareText', { money: rp(tot.money), n: count(tot.sachets), url: location.href.split('#')[0] });
 
   return `

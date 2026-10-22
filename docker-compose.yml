@@ -1,0 +1,12 @@
+services:
+  sachet:
+    build: .
+    image: sachet-migration
+    ports:
+      - "${SACHET_PORT:-8080}:8080"
+    volumes:
+      - sachet-data:/data
+    restart: unless-stopped
+
+volumes:
+  sachet-data:

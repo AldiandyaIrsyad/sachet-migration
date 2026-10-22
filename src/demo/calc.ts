@@ -1,10 +1,9 @@
-import { addons, byCategory, productById, type Product } from './data';
+import { addons, type Product } from '../data';
+import type { Comparison, Savings } from '../ports';
+import { byCategory, productById } from './catalog';
 
 const inCategory = (p: Product) => byCategory.get(p.category) ?? [];
 
-/** Shelf price per portion of this product on its own. */
-export const costPer = (p: Product) => p.price / p.servings;
-export const plasticPer = (p: Product) => p.plasticG / p.servings;
 
 /** Extras (sugar, milk…) you'd need to buy so `alt` matches `usual`. */
 export function appliedAddons(usual: Product, alt: Product) {
@@ -17,32 +16,16 @@ export function appliedAddons(usual: Product, alt: Product) {
 export function matchedPer(usual: Product, alt: Product) {
   const extra = appliedAddons(usual, alt);
   return {
-    cost: costPer(alt) + extra.reduce((s, a) => s + a.costPerServing, 0),
-    plastic: plasticPer(alt) + extra.reduce((s, a) => s + a.plasticPerServing, 0),
+    cost: alt.costPer + extra.reduce((s, a) => s + a.costPerServing, 0),
+    plastic: alt.plasticPer + extra.reduce((s, a) => s + a.plasticPerServing, 0),
   };
 }
 
 export const sachetsPer = (p: Product) => p.sachets / p.servings;
 
-export interface Comparison {
-  /** Relative change in cost per serving, e.g. -0.08 = 8% cheaper. */
-  dCost: number;
-  /** Relative change in plastic per serving. */
-  dPlastic: number;
-  /** Rupiah saved per serving (negative = costs more). */
-  savePerServing: number;
-  /** Grams of plastic avoided per serving. */
-  plasticSavedPerServing: number;
-  /**
-   * Share of the new pack you could waste and still pay less per serving
-   * than the usual product. 0 when the swap is not cheaper.
-   */
-  wasteTolerance: number;
-}
-
 export function compare(usual: Product, alt: Product): Comparison {
-  const cu = costPer(usual);
-  const pu = plasticPer(usual);
+  const cu = usual.costPer;
+  const pu = usual.plasticPer;
   const { cost: ca, plastic: pa } = matchedPer(usual, alt);
   return {
     dCost: (ca - cu) / cu,
@@ -73,7 +56,7 @@ export function swapScore(usual: Product, alt: Product): number {
 export function alternatives(usual: Product): { shown: Product[]; hiddenCount: number } {
   const candidates = inCategory(usual).filter((p) => p.id !== usual.id && p.kind !== 'refill');
   const shown = candidates
-    .filter((p) => plasticPer(p) < plasticPer(usual))
+    .filter((p) => p.plasticPer < usual.plasticPer)
     .sort(
       (a, b) =>
         closeness(usual, a) - closeness(usual, b) ||
@@ -92,12 +75,6 @@ export function refillsFor(p: Product): Product[] {
 /** The bulk-sachet pack in the same category, if one exists. */
 export function bulkSachetIn(p: Product): Product | undefined {
   return inCategory(p).find((x) => x.kind === 'bulk-sachet' && x.id !== p.id);
-}
-
-export interface Savings {
-  money: number;
-  plastic: number;
-  sachets: number;
 }
 
 /**

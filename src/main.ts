@@ -1,14 +1,12 @@
 import './style.css';
-import { switchSavings } from './calc';
+import { backend } from './backend';
 import { compose } from './compose';
-import { productById } from './data';
 import { features } from './features';
 import { getLang, setLang, t, type Lang } from './i18n';
 import { onBarcodeSubmit, onLookupClick, onPhotoChosen, onSearchInput, stopCamera } from './lookup';
-import { addBase, buyAgain, migrate, removeMigration } from './store';
 import { grams, name, pack, rp } from './ui';
 import { homeView } from './views/home';
-import { productView, showMoreSwaps, WANT_KEY, wanted } from './views/product';
+import { productView, showMoreSwaps } from './views/product';
 import {
   applyParams,
   productListHtml,
@@ -65,36 +63,49 @@ function parseHash() {
 }
 
 let lastHash = '';
+/** True once the person has moved between pages here, so history.back() stays inside the app. */
+let navigatedInApp = false;
+/** Bumped on every render, so a slow page that finishes after you've moved on doesn't overwrite the new one. */
+let renderRun = 0;
 
-function route() {
-  stopCamera();
-  toastEl.hidden = true;
-  const { page, id, params } = parseHash();
-  let tab = 'home';
-  if (page === 'p' && id && productById.has(id)) {
-    app.innerHTML = productView(productById.get(id)!);
+async function pageHtml(page: string, id: string | undefined, params: URLSearchParams): Promise<{ html: string; tab: string }> {
+  if (page === 'p' && id) {
+    const html = await productView(id);
+    if (html) return { html, tab: 'home' };
   } else if (page === 'migrasi') {
-    app.innerHTML = migrationsView();
-    tab = 'migrations';
+    return { html: await migrationsView(), tab: 'migrations' };
   } else if (page === 'kenapa') {
-    app.innerHTML = whyView();
-    tab = 'why';
+    return { html: await whyView(), tab: 'home' };
   } else if (page === 'produk') {
     // Filters in the URL only apply when you arrive with them (e.g. from "see all results").
     if (location.hash !== lastHash && params.size) applyParams(params);
-    app.innerHTML = productsView();
-    tab = 'products';
-  } else {
-    app.innerHTML = homeView();
+    return { html: await productsView(), tab: 'products' };
   }
+  return { html: homeView(), tab: 'home' };
+}
+
+async function route() {
+  stopCamera();
+  toastEl.hidden = true;
+  const run = ++renderRun;
+  const { page, id, params } = parseHash();
+  let result: { html: string; tab: string };
+  try {
+    result = await pageHtml(page, id, params);
+  } catch {
+    if (run !== renderRun) return;
+    result = { html: `<p class="hint">${t('loadFail')}</p>`, tab: 'home' };
+  }
+  if (run !== renderRun) return;
+  app.innerHTML = result.html;
   lastHash = location.hash;
-  renderChrome(tab);
+  renderChrome(result.tab);
   window.scrollTo(0, 0);
 }
 
-function rerender() {
+async function rerender() {
   const y = window.scrollY;
-  route();
+  await route();
   window.scrollTo(0, y);
 }
 
@@ -108,7 +119,7 @@ topbar.addEventListener('click', async (ev) => {
   const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('[data-lang]');
   if (!btn) return;
   setLang(btn.dataset.lang as Lang);
-  rerender();
+  void rerender();
 });
 
 app.addEventListener('click', async (ev) => {
@@ -116,7 +127,7 @@ app.addEventListener('click', async (ev) => {
 
   // "Back" goes to wherever you came from (the product list keeps its filters).
   const back = target.closest<HTMLAnchorElement>('[data-back]');
-  if (back && history.length > 1) {
+  if (back && navigatedInApp) {
     ev.preventDefault();
     history.back();
     return;
@@ -127,45 +138,46 @@ app.addEventListener('click', async (ev) => {
 
   if (await onLookupClick(el)) return;
 
+  try {
+    await act(el);
+  } catch {
+    toast(t('loadFail'));
+  }
+});
+
+async function act(el: HTMLElement) {
   if (el.dataset.mine) {
-    addBase(el.dataset.mine);
-    rerender();
+    await backend().addBase(el.dataset.mine);
+    await rerender();
   } else if (el.dataset.migrate) {
-    const base = productById.get(el.dataset.base!)!;
-    const to = productById.get(el.dataset.migrate)!;
-    migrate(base.id, to.id);
-    const s = switchSavings(base, to, 1);
-    rerender();
+    const { to, savings: s } = await backend().migrate(el.dataset.base!, el.dataset.migrate);
+    await rerender();
     toast(
       `${t('toastMigrate', { name: `${name(to)}, ${pack(to)}` })} ${
         s.money >= 0 ? t('toastSave', { money: rp(s.money) }) : t('toastCost', { money: rp(-s.money) })
       }${t('toastPlastic', { g: grams(s.plastic) })} <a href="#/migrasi">${t('seeTotal')}</a>`,
     );
   } else if (el.dataset.again) {
-    buyAgain(el.dataset.again);
-    rerender();
+    await backend().buyAgain(el.dataset.again);
+    await rerender();
   } else if (el.dataset.remove) {
-    removeMigration(el.dataset.remove);
-    rerender();
+    await backend().remove(el.dataset.remove);
+    await rerender();
   } else if (el.dataset.want) {
-    try {
-      localStorage.setItem(WANT_KEY, JSON.stringify([...wanted(), el.dataset.want]));
-    } catch {
-      // ignore
-    }
     (el as HTMLButtonElement).disabled = true;
+    await backend().wantBigPack(el.dataset.want);
     el.textContent = t('wantBigDone');
   } else if (el.dataset.pcat) {
     setCategory(el.dataset.pcat as CategoryId | 'all');
-    rerender();
+    await rerender();
   } else if ('moreProducts' in el.dataset) {
     showMoreProducts();
-    document.querySelector('#plist')!.innerHTML = productListHtml();
+    document.querySelector('#plist')!.innerHTML = await productListHtml();
   } else if ('moreSwaps' in el.dataset) {
     showMoreSwaps();
-    rerender();
+    await rerender();
   }
-});
+}
 
 app.addEventListener('submit', (ev) => {
   const form = ev.target as HTMLFormElement;
@@ -180,6 +192,7 @@ app.addEventListener('change', (ev) => {
 });
 
 let productSearchTimer = 0;
+let listRun = 0;
 app.addEventListener('input', (ev) => {
   const input = ev.target as HTMLInputElement;
   if (input.id === 'search') onSearchInput(input);
@@ -187,7 +200,11 @@ app.addEventListener('input', (ev) => {
     clearTimeout(productSearchTimer);
     productSearchTimer = window.setTimeout(() => {
       setQuery(input.value);
-      document.querySelector('#plist')!.innerHTML = productListHtml();
+      const run = ++listRun;
+      void productListHtml().then((html) => {
+        const list = document.querySelector('#plist');
+        if (list && run === listRun) list.innerHTML = html;
+      });
     }, 120);
   }
 });
@@ -208,8 +225,11 @@ async function boot() {
     banner.hidden = false;
     document.title += ' (demo)';
   }
-  window.addEventListener('hashchange', route);
-  route();
+  window.addEventListener('hashchange', () => {
+    navigatedInApp = true;
+    void route();
+  });
+  await route();
   if (features.tour) (await import('./demo/tour')).startTourIfFirstVisit();
 }
 
