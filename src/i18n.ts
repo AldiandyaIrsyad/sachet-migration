@@ -74,8 +74,8 @@ const strings = {
   },
   tour4Title: { id: '4. Pindah', en: '4. Switch' },
   tour4: {
-    id: 'Ketuk tombol pindah saat kamu membelinya. Kami buatkan contoh belanja tiga kali.',
-    en: 'Tap the switch button when you buy it. We’ll log three example purchases for you.',
+    id: 'Klik tombol pindah saat kamu membelinya. Kami buatkan contoh belanja tiga kali.',
+    en: 'Click the switch button when you buy it. We’ll log three example purchases for you.',
   },
   tour5Title: { id: '5. Hematnya menumpuk', en: '5. Savings add up' },
   tour5: {
