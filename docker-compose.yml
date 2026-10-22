@@ -1,12 +1,30 @@
 services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: sachet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sachet}
+      POSTGRES_DB: sachet
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sachet -d sachet"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   sachet:
     build: .
     image: sachet-migration
+    environment:
+      DATABASE_URL: postgres://sachet:${POSTGRES_PASSWORD:-sachet}@db:5432/sachet?sslmode=disable
     ports:
       - "${SACHET_PORT:-8080}:8080"
-    volumes:
-      - sachet-data:/data
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
-  sachet-data:
+  pgdata:

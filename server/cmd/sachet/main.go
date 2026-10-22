@@ -43,13 +43,25 @@ func main() {
 	}
 }
 
+// openStore uses PostgreSQL when DATABASE_URL is set (the Docker Compose setup) and a local SQLite file otherwise,
+// which keeps `go run` working with nothing installed.
+func openStore(log *slog.Logger) (store.Store, error) {
+	if url := os.Getenv("DATABASE_URL"); url != "" {
+		log.Info("using PostgreSQL")
+		return store.OpenPostgres(context.Background(), url)
+	}
+	path := env("DB_PATH", "./sachet.db")
+	log.Info("using SQLite", "path", path)
+	return store.OpenSQLite(path)
+}
+
 func run(log *slog.Logger, port string) error {
 	dataDir := env("DATA_DIR", "./data")
 	cat, err := catalog.LoadFiles(dataDir, "products.json")
 	if err != nil {
 		return fmt.Errorf("catalogue: %w", err)
 	}
-	st, err := store.OpenSQLite(env("DB_PATH", "./sachet.db"))
+	st, err := openStore(log)
 	if err != nil {
 		return fmt.Errorf("database: %w", err)
 	}

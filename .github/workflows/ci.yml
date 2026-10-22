@@ -21,6 +21,18 @@ jobs:
 
   server:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: sachet
+          POSTGRES_PASSWORD: sachet
+          POSTGRES_DB: sachet_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sachet" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://sachet:sachet@localhost:5432/sachet_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

@@ -10,11 +10,11 @@ Scan a sachet product and see a cheaper, lower-plastic swap. Log what you bought
 ## Architecture
 
 ```
-browser (Vite + TypeScript, thin client)  ──/api──▶  Go server  ──▶  SQLite (per-visitor switches)
+browser (Vite + TypeScript, thin client)  ──/api──▶  Go server  ──▶  PostgreSQL (per-visitor switches)
         ZXing barcode scanning                        catalogue, search, swap maths
 ```
 
-- **Go server** (`server/`): owns the catalogue, search, barcode lookup, the per-serving and swap maths, and each visitor's saved switches. Plain `net/http`, SQLite through a pure-Go driver (no cgo), anonymous visitors identified by an `HttpOnly` session cookie (only its hash is stored).
+- **Go server** (`server/`): owns the catalogue, search, barcode lookup, the per-serving and swap maths, and each visitor's saved switches. Plain `net/http`, PostgreSQL through `pgx` (a local SQLite file is the zero-setup fallback for `go run`), anonymous visitors identified by an `HttpOnly` session cookie (only its hash is stored).
 - **Frontend** (`src/`): renders what the API returns and does the camera scanning. It only talks to the `Backend` interface in `src/ports.ts`.
 - **Demo** (`src/demo/`): the same `Backend` implemented in the browser, so the GitHub Pages site works with no server. It is a separate chunk that only the demo build loads.
 
@@ -31,12 +31,13 @@ browser (Vite + TypeScript, thin client)  ──/api──▶  Go server  ──
 docker compose up --build
 ```
 
-Open http://localhost:8080 (set `SACHET_PORT` to use another host port). The database lives in the `sachet-data` volume, so switches survive restarts and rebuilds. The image is one small distroless container holding the server and the built frontend.
+Open http://localhost:8080 (set `SACHET_PORT` to use another host port). Compose starts PostgreSQL (data in the `pgdata` volume, not published to the host) and the app container, which waits for the database to be healthy. The app image is one small distroless container holding the server and the built frontend. Set `POSTGRES_PASSWORD` in a `.env` file for anything beyond local use.
 
 | Variable | Default (in the image) | Meaning |
 |---|---|---|
 | `PORT` | `8080` | Listen port |
-| `DB_PATH` | `/data/sachet.db` | SQLite file |
+| `DATABASE_URL` | set by Compose | PostgreSQL connection string. When empty the server uses SQLite instead |
+| `DB_PATH` | `./sachet.db` | SQLite file, only used when `DATABASE_URL` is empty |
 | `DATA_DIR` | `/app/data` | Folder holding `products.json` |
 | `STATIC_DIR` | `/app/web` | Built frontend; the server serves only the API if it is missing |
 
@@ -47,7 +48,7 @@ Backend (needs Go 1.26+):
 ```bash
 cd server
 DATA_DIR=../public/data go run ./cmd/sachet     # API on :8080
-go test ./...
+go test ./...                                   # uses SQLite; set TEST_DATABASE_URL to also test PostgreSQL
 ```
 
 Frontend, in another terminal (Vite proxies `/api` to the server):
@@ -80,7 +81,7 @@ Prices and packaging weights are **estimates** unless noted; barcodes starting `
 
 ## Deploy
 
-- **Real app:** build the image (`docker build -t sachet-migration .`) and run it anywhere Docker runs, with a volume on `/data`. Put it behind HTTPS (the session cookie turns on `Secure` when `X-Forwarded-Proto: https` is set by your proxy).
+- **Real app:** build the image (`docker build -t sachet-migration .`) and run it anywhere Docker runs, with `DATABASE_URL` pointing at a PostgreSQL database. Put it behind HTTPS (the session cookie turns on `Secure` when `X-Forwarded-Proto: https` is set by your proxy).
 - **Demo:** push to `main`. In the repo set **Settings → Pages → Source: GitHub Actions**; `.github/workflows/deploy.yml` builds the demo (`npm run build:demo`) and publishes it. `ci.yml` runs the tests and builds the image on every push and pull request.
 
 ## Layout
@@ -88,7 +89,7 @@ Prices and packaging weights are **estimates** unless noted; barcodes starting `
 - `server/cmd/sachet`: entry point (config from environment, graceful shutdown, `healthcheck` subcommand for Docker).
 - `server/internal/catalog`: loading, validation, derived numbers, barcode lookup, ranked search.
 - `server/internal/calc`: per-serving cost, plastic and swap maths.
-- `server/internal/store`: the `Store` interface and its SQLite implementation (another database could sit behind the same interface).
+- `server/internal/store`: the `Store` interface with PostgreSQL and SQLite implementations, tested by one shared suite.
 - `server/internal/api`: HTTP handlers.
 - `src/ports.ts`, `src/backend.ts`, `src/compose.ts`: the `Backend` interface and where it is chosen. `src/adapters/api-backend.ts` is the server client.
 - `src/views/`: one file per screen (home, products, product, savings, why). `src/lookup.ts`: camera, photo, typed barcode and quick search.
