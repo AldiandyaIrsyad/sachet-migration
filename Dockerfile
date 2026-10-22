@@ -32,7 +32,7 @@ COPY public/data/products.json /app/data/products.json
 
 ENV PORT=8080 \
     DATA_DIR=/app/data \
-    STATIC_DIR=/app/web \
+    STATIC_DIR=/app/web
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s CMD ["/app/sachet", "healthcheck"]
 ENTRYPOINT ["/app/sachet"]
